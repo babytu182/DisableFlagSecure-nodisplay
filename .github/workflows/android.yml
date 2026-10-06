@@ -43,9 +43,11 @@ jobs:
       - name: Upload release artifact
         uses: actions/upload-artifact@v7
         with:
+          name: app-release
           path: app/build/outputs/apk/release/*.apk
 
       - name: Upload debug artifact
         uses: actions/upload-artifact@v7
         with:
+          name: app-debug
           path: app/build/outputs/apk/debug/*.apk

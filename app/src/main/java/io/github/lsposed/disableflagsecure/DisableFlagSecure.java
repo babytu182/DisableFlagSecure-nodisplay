@@ -267,31 +267,11 @@ public class DisableFlagSecure extends XposedModule {
 
     private void hookWindowState(ClassLoader classLoader) throws ClassNotFoundException, NoSuchMethodException {
         var windowStateClazz = classLoader.loadClass("com.android.server.wm.WindowState");
-        var systemServerCl = windowStateClazz.getClassLoader();
         var isSecureLockedMethod = windowStateClazz.getDeclaredMethod("isSecureLocked");
         hookE(isSecureLockedMethod).intercept(chain -> {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                var walker = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
-                var match = walker.walk(frames -> frames
-                        .anyMatch(frame -> frame.getDeclaringClass() != null &&
-                                frame.getDeclaringClass().getClassLoader() == systemServerCl &&
-                                (frame.getMethodName().equals("setInitialSurfaceControlProperties") ||
-                                        frame.getMethodName().equals("createSurfaceLocked"))));
-                if (match) return chain.proceed();
-            } else {
-                var stackTrace = new Throwable().getStackTrace();
-                for (var frame : stackTrace) {
-                    var name = frame.getMethodName();
-                    try {
-                        if ((name.equals("setInitialSurfaceControlProperties") ||
-                                name.equals("createSurfaceLocked")) &&
-                                classLoader.loadClass(frame.getClassName()).getClassLoader() == systemServerCl) {
-                            return chain.proceed();
-                        }
-                    } catch (ClassNotFoundException ignored) {
-                    }
-                }
-            }
+            // Unconditionally strip FLAG_SECURE: do NOT exempt createSurfaceLocked /
+            // setInitialSurfaceControlProperties, so the physical Display is never marked
+            // secure (fixes scrcpy / MediaProjection black screen on TV boxes).
             return false;
         });
     }
